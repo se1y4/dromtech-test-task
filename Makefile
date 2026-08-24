@@ -49,6 +49,6 @@ shell:
 
 clean:
 	$(COMPOSE) down -v --remove-orphans
-	rm -rf vendor task1/vendor .phpunit.cache task1/.phpunit.cache
+	rm -rf vendor task1/vendor composer.lock task1/composer.lock .phpunit.cache task1/.phpunit.cache
 
 .PHONY: help build install test test-task1 test-task2 qa cs-fix shell clean
