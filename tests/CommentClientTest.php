@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Se1y4\CommentClient\Tests;
 
+use Http\Discovery\Psr18ClientDiscovery;
 use Http\Mock\Client as MockClient;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -11,11 +12,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use RuntimeException;
-use Se1y4\CommentClient\Comment;
 use Se1y4\CommentClient\CommentClient;
 use Se1y4\CommentClient\CommentClientInterface;
 use Se1y4\CommentClient\Exception\CommentClientExceptionInterface;
 use Se1y4\CommentClient\Exception\EmptyUpdateException;
+use Se1y4\CommentClient\Exception\HttpImplementationNotFoundException;
 use Se1y4\CommentClient\Exception\InvalidBaseUriException;
 use Se1y4\CommentClient\Exception\InvalidResponseException;
 use Se1y4\CommentClient\Exception\TransportException;
@@ -53,6 +54,7 @@ final class CommentClientTest extends TestCase
         self::assertSame('GET', $request->getMethod());
         self::assertSame('https://example.com/comments', (string) $request->getUri());
         self::assertSame('application/json', $request->getHeaderLine('Accept'));
+        self::assertFalse($request->hasHeader('Content-Type'));
         self::assertSame('', (string) $request->getBody());
     }
 
@@ -66,7 +68,6 @@ final class CommentClientTest extends TestCase
         $comments = $this->client->getComments();
 
         self::assertCount(2, $comments);
-        self::assertContainsOnlyInstancesOf(Comment::class, $comments);
         self::assertSame(2, $comments[1]->id);
         self::assertSame('Пётр', $comments[1]->name);
     }
@@ -97,6 +98,7 @@ final class CommentClientTest extends TestCase
         self::assertSame('POST', $request->getMethod());
         self::assertSame('https://example.com/comment', (string) $request->getUri());
         self::assertSame('application/json', $request->getHeaderLine('Content-Type'));
+        self::assertSame('application/json', $request->getHeaderLine('Accept'));
         self::assertSame(['name' => 'Иван', 'text' => 'Первый'], $this->decodeRequestBody($request));
         self::assertSame(15, $created->id);
     }
@@ -110,6 +112,8 @@ final class CommentClientTest extends TestCase
         $request = $this->lastRequest();
         self::assertSame('PUT', $request->getMethod());
         self::assertSame('https://example.com/comment/42', (string) $request->getUri());
+        self::assertSame('application/json', $request->getHeaderLine('Content-Type'));
+        self::assertSame('application/json', $request->getHeaderLine('Accept'));
         self::assertSame(['name' => 'Новое имя'], $this->decodeRequestBody($request));
         self::assertSame('Новое имя', $updated->name);
     }
@@ -224,6 +228,41 @@ final class CommentClientTest extends TestCase
     private function decodeRequestBody(RequestInterface $request): array
     {
         return (array) json_decode((string) $request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function testGetCommentsRejectsListItemThatIsNotAnObject(): void
+    {
+        $this->queueJson(200, [['id' => 1, 'name' => 'Иван', 'text' => 'Первый'], 'oops']);
+
+        $this->expectException(InvalidResponseException::class);
+
+        $this->client->getComments();
+    }
+
+    public function testSuccessfulResponseWithoutBodyIsRejected(): void
+    {
+        $this->transport->addResponse($this->psr17->createResponse(204));
+
+        $this->expectException(InvalidResponseException::class);
+
+        $this->client->updateComment(42, name: 'Имя');
+    }
+
+    public function testFailedDiscoveryIsReportedAsLibraryException(): void
+    {
+        $strategies = [...Psr18ClientDiscovery::getStrategies()];
+        Psr18ClientDiscovery::setStrategies([]);
+        Psr18ClientDiscovery::clearCache();
+
+        try {
+            new CommentClient(self::BASE_URI);
+            self::fail('Expected ' . HttpImplementationNotFoundException::class);
+        } catch (HttpImplementationNotFoundException $e) {
+            self::assertInstanceOf(CommentClientExceptionInterface::class, $e);
+        } finally {
+            Psr18ClientDiscovery::setStrategies($strategies);
+            Psr18ClientDiscovery::clearCache();
+        }
     }
 
     #[DataProvider('unusableBaseUris')]
