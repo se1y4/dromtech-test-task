@@ -1,6 +1,6 @@
 DOCKER_UID := $(shell id -u)
 DOCKER_GID := $(shell id -g)
-PHP_VERSION ?= 8.3
+PHP_VERSION ?= 8.1
 COMPOSE := DOCKER_UID=$(DOCKER_UID) DOCKER_GID=$(DOCKER_GID) PHP_VERSION=$(PHP_VERSION) docker compose
 RUN1 := $(COMPOSE) run --rm task1
 RUN2 := $(COMPOSE) run --rm task2
@@ -9,7 +9,7 @@ RUN2 := $(COMPOSE) run --rm task2
 
 help:
 	@echo "Доступные команды:"
-	@echo "  make build        сборка образа (PHP_VERSION=8.3 по умолчанию)"
+	@echo "  make build        сборка образа (PHP_VERSION=8.1 по умолчанию)"
 	@echo "  make install      composer install в обоих заданиях"
 	@echo "  make test         тесты обоих заданий"
 	@echo "  make test-task1   тесты задания 1"
