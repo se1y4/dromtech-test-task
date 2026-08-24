@@ -21,11 +21,26 @@ jobs:
       - run: make install
       - run: make test
 
-  qa:
-    name: Статический анализ и стиль
+  static-analysis:
+    name: PHPStan на PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.5']
+    env:
+      PHP_VERSION: ${{ matrix.php }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make build
+      - run: make install
+      - run: make phpstan
+
+  code-style:
+    name: PSR-12
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: make build
       - run: make install
-      - run: make qa
+      - run: make cs

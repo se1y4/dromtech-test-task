@@ -15,6 +15,8 @@ help:
 	@echo "  make test-task1   тесты задания 1"
 	@echo "  make test-task2   тесты задания 2"
 	@echo "  make qa           phpstan + проверка стиля в обоих заданиях"
+	@echo "  make phpstan      только статический анализ"
+	@echo "  make cs           только проверка стиля"
 	@echo "  make cs-fix       автоформатирование под PSR-12"
 	@echo "  make shell        shell внутри контейнера"
 	@echo "  make clean        остановить контейнеры и удалить зависимости"
@@ -34,10 +36,14 @@ test-task1:
 test-task2:
 	$(RUN2) composer test
 
-qa:
+qa: phpstan cs
+
+phpstan:
 	$(RUN1) composer phpstan
-	$(RUN1) composer cs-check
 	$(RUN2) composer phpstan
+
+cs:
+	$(RUN1) composer cs-check
 	$(RUN2) composer cs-check
 
 cs-fix:
@@ -51,4 +57,4 @@ clean:
 	$(COMPOSE) down -v --remove-orphans
 	rm -rf vendor task1/vendor composer.lock task1/composer.lock .phpunit.cache task1/.phpunit.cache
 
-.PHONY: help build install test test-task1 test-task2 qa cs-fix shell clean
+.PHONY: help build install test test-task1 test-task2 qa phpstan cs cs-fix shell clean

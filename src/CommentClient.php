@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Se1y4\CommentClient;
 
+use Http\Discovery\Exception as DiscoveryException;
 use Http\Discovery\Psr17FactoryDiscovery;
 use Http\Discovery\Psr18ClientDiscovery;
 use JsonException;
@@ -13,6 +14,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Se1y4\CommentClient\Exception\EmptyUpdateException;
+use Se1y4\CommentClient\Exception\HttpImplementationNotFoundException;
 use Se1y4\CommentClient\Exception\InvalidBaseUriException;
 use Se1y4\CommentClient\Exception\InvalidResponseException;
 use Se1y4\CommentClient\Exception\TransportException;
@@ -37,9 +39,14 @@ final class CommentClient implements CommentClientInterface
         ?StreamFactoryInterface $streamFactory = null,
     ) {
         $this->baseUri = self::normaliseBaseUri($baseUri);
-        $this->httpClient = $httpClient ?? Psr18ClientDiscovery::find();
-        $this->requestFactory = $requestFactory ?? Psr17FactoryDiscovery::findRequestFactory();
-        $this->streamFactory = $streamFactory ?? Psr17FactoryDiscovery::findStreamFactory();
+
+        try {
+            $this->httpClient = $httpClient ?? Psr18ClientDiscovery::find();
+            $this->requestFactory = $requestFactory ?? Psr17FactoryDiscovery::findRequestFactory();
+            $this->streamFactory = $streamFactory ?? Psr17FactoryDiscovery::findStreamFactory();
+        } catch (DiscoveryException $e) {
+            throw HttpImplementationNotFoundException::forDiscovery($e);
+        }
     }
 
     private static function normaliseBaseUri(string $baseUri): string

@@ -11,6 +11,7 @@ use Se1y4\CountSum\CountSummator;
 use Se1y4\CountSum\Exception\CountSummatorExceptionInterface;
 use Se1y4\CountSum\Exception\InvalidCountFileException;
 use Se1y4\CountSum\Exception\InvalidPathException;
+use Se1y4\CountSum\Exception\SumOverflowException;
 use Se1y4\CountSum\Exception\UnreadableDirectoryException;
 use Se1y4\CountSum\Exception\UnreadableFileException;
 
@@ -266,6 +267,20 @@ final class CountSummatorTest extends TestCase
         self::assertSame(10, $this->summator->sum($root));
     }
 
+    public function testIgnoresEntryThatIsNotARegularFile(): void
+    {
+        if (!function_exists('posix_mkfifo')) {
+            self::markTestSkipped('Нужно расширение posix.');
+        }
+
+        $root = $this->createTempDirectory();
+        mkdir($root . '/inner');
+        file_put_contents($root . '/inner/count', '5');
+        posix_mkfifo($root . '/count', 0644);
+
+        self::assertSame(5, $this->summator->sum($root));
+    }
+
     private function createTempDirectory(): string
     {
         $path = sys_get_temp_dir() . '/count-summator-' . bin2hex(random_bytes(6));
@@ -293,15 +308,70 @@ final class CountSummatorTest extends TestCase
 
             $child = $path . '/' . $entry;
 
-            if (is_link($child) || is_file($child)) {
-                unlink($child);
+            if (is_dir($child) && !is_link($child)) {
+                $this->removeDirectory($child);
 
                 continue;
             }
 
-            $this->removeDirectory((string) $child);
+            unlink($child);
         }
 
         rmdir($path);
+    }
+
+    public function testFailsWhenTotalOverflowsIntegerRange(): void
+    {
+        $root = vfsStream::setup('root', null, [
+            'a' => ['count' => (string) PHP_INT_MAX],
+            'b' => ['count' => '1'],
+        ]);
+
+        try {
+            $this->summator->sum($root->url());
+            self::fail('Expected ' . SumOverflowException::class);
+        } catch (SumOverflowException $e) {
+            self::assertInstanceOf(CountSummatorExceptionInterface::class, $e);
+        }
+    }
+
+    public function testFailsWhenSingleFileOverflowsIntegerRange(): void
+    {
+        $root = vfsStream::setup('root', null, [
+            'count' => PHP_INT_MAX . ' 1',
+        ]);
+
+        $this->expectException(SumOverflowException::class);
+
+        $this->summator->sum($root->url());
+    }
+
+    public function testFailsWhenTotalUnderflowsIntegerRange(): void
+    {
+        $root = vfsStream::setup('root', null, [
+            'count' => PHP_INT_MIN . ' -1',
+        ]);
+
+        $this->expectException(SumOverflowException::class);
+
+        $this->summator->sum($root->url());
+    }
+
+    public function testIgnoresUtf8ByteOrderMark(): void
+    {
+        $root = vfsStream::setup('root', null, [
+            'count' => "\xEF\xBB\xBF42 8",
+        ]);
+
+        self::assertSame(50, $this->summator->sum($root->url()));
+    }
+
+    public function testAcceptsLeadingZeroes(): void
+    {
+        $root = vfsStream::setup('root', null, [
+            'count' => '007 +008 -009',
+        ]);
+
+        self::assertSame(6, $this->summator->sum($root->url()));
     }
 }
