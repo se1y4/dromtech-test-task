@@ -1,0 +1,9 @@
+.git
+.github
+vendor
+task1/vendor
+.phpunit.cache
+task1/.phpunit.cache
+.php-cs-fixer.cache
+task1/.php-cs-fixer.cache
+.env

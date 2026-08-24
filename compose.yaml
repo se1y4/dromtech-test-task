@@ -1,0 +1,27 @@
+services:
+  task1:
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+    image: dromtech-test-task:php${PHP_VERSION:-8.3}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    working_dir: /app/task1
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+
+  task2:
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+    image: dromtech-test-task:php${PHP_VERSION:-8.3}
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    working_dir: /app
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+
+volumes:
+  composer-cache:
