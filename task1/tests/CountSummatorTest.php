@@ -256,6 +256,16 @@ final class CountSummatorTest extends TestCase
         self::assertSame(4, $this->summator->sum($root));
     }
 
+    public function testDoesNotCountSymlinkedCountFileTwice(): void
+    {
+        $root = $this->createTempDirectory();
+        mkdir($root . '/real');
+        file_put_contents($root . '/real/count', '10');
+        symlink($root . '/real/count', $root . '/count');
+
+        self::assertSame(10, $this->summator->sum($root));
+    }
+
     private function createTempDirectory(): string
     {
         $path = sys_get_temp_dir() . '/count-summator-' . bin2hex(random_bytes(6));

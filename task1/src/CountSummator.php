@@ -26,6 +26,10 @@ final class CountSummator
         $total = 0;
 
         foreach ($this->walk($path) as $entry) {
+            if ($entry->isLink()) {
+                continue;
+            }
+
             $pathname = $entry->getPathname();
 
             if ($entry->isDir()) {
